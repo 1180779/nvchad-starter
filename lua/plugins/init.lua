@@ -27,31 +27,48 @@ return {
     vim.g.vimtex_compiler_method = "latexmk"
     vim.g.vimtex_imaps_enabled = 0
     vim.g.vimtex_mappings_enabled = 1
+    vim.g.vimtex_quickfix_open_on_warning = 0
   end,
-  config = function()
+    config = function()
+    -- Maximize the zathura window showing the given (or current) PDF.
+    local function maximize_zathura(pdf)
+      pdf = pdf or (vim.fn.expand("%:p:r") .. ".pdf")
+      vim.fn.jobstart({
+        "bash", "-c",
+        [[
+          pdf="]] .. pdf .. [["
+          wid=$(xdotool search --class zathura 2>/dev/null | while read id; do
+            name=$(xdotool getwindowname "$id" 2>/dev/null)
+            case "$name" in
+              *"$pdf"*) echo "$id"; break;;
+            esac
+          done)
+          [ -z "$wid" ] && wid=$(xdotool search --sync --class zathura 2>/dev/null | tail -1)
+          [ -n "$wid" ] && xdotool windowfocus --sync "$wid" && \
+            wmctrl -i -r "$(printf '0x%x' "$wid")" -b add,maximized_vert,maximized_horz
+        ]]
+      })
+    end
+
+    -- Explicit forward search / :VimtexView
     vim.api.nvim_create_autocmd("User", {
       pattern = "VimtexEventView",
+      callback = function() maximize_zathura() end,
+    })
+
+    -- First automatic open after the initial successful compile (once per buffer)
+    vim.api.nvim_create_autocmd("User", {
+      pattern = "VimtexEventCompileSuccess",
       callback = function()
-        local pdf = vim.fn.expand("%:p:r") .. ".pdf"  -- full absolute path
-        vim.fn.jobstart({
-          "bash", "-c",
-          [[
-            pdf="]] .. pdf .. [["
-            wid=$(xdotool search --class zathura 2>/dev/null | while read id; do
-              name=$(xdotool getwindowname "$id" 2>/dev/null)
-              case "$name" in
-                *"$pdf"*) echo "$id"; break;;
-              esac
-            done)
-            [ -z "$wid" ] && wid=$(xdotool search --sync --class zathura 2>/dev/null | tail -1)
-            [ -n "$wid" ] && xdotool windowfocus --sync "$wid" && \
-              wmctrl -i -r "$(printf '0x%x' "$wid")" -b add,maximized_vert,maximized_horz
-          ]]
-        })
+        if vim.b.zathura_maximized then return end
+        vim.b.zathura_maximized = true
+        local pdf = vim.fn.expand("%:p:r") .. ".pdf"
+        -- small delay so zathura has spawned and the WM has mapped its window
+        vim.defer_fn(function() maximize_zathura(pdf) end, 800)
       end,
     })
   end,
-},
+  },
   {
     "stevearc/conform.nvim",
     -- event = 'BufWritePre', -- uncomment for format on save
