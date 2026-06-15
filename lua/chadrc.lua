@@ -16,10 +16,12 @@ M.base46 = {
 }
 
 -- M.nvdash = { load_on_startup = true }
--- M.ui = {
---       tabufline = {
---          lazyload = false
---      }
--- }
+
+-- Disable the buffer/tab bar at the top — use <leader><leader> (find files) to switch instead.
+M.ui = {
+  tabufline = {
+    enabled = false,
+  },
+}
 
 return M
