@@ -70,6 +70,18 @@ return {
   end,
   },
   {
+    "coder/claudecode.nvim",
+    event = "VeryLazy", -- load at startup so the WS server + ~/.claude/ide/ lockfile exist for /ide
+    opts = {
+      -- Claude runs in a separate terminal, so no-op the integrated terminal (no split on send)
+      terminal = { provider = "none" },
+    },
+    keys = {
+      -- Visually select, then push it to a connected Claude Code session as @file#Lx-y
+      { "<leader>ls", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send selection to Claude Code" },
+    },
+  },
+  {
     "stevearc/conform.nvim",
     -- event = 'BufWritePre', -- uncomment for format on save
     opts = require "configs.conform",
