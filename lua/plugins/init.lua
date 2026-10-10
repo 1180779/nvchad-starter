@@ -5,12 +5,6 @@ return {
     dev = true,
   },
   {
-    "m4xshen/hardtime.nvim",
-    lazy = false,
-    dependencies = { "MunifTanjim/nui.nvim" },
-    opts = {},
-  },
-  {
     "ludovicchabant/vim-gutentags",
     ft = { "tex", "bib" }, -- lazy-load only for tex files
     init = function()
