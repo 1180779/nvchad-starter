@@ -15,6 +15,16 @@ local options = {
     -- html = { "prettier" },
   },
 
+  formatters = {
+    mh_style = {
+      command = vim.fn.stdpath "config" .. "/scripts/matlab_format.py",
+      args = { "--fix", "--tab_width", "2", "$FILENAME" },
+      condition = function()
+        return vim.fn.executable "mh_style" == 1
+      end,
+    },
+  },
+
   -- For any filetype without a dedicated formatter above, use the active LSP.
   -- e.g. Java -> jdtls, so reformatting matches your language server's rules.
   default_format_opts = {

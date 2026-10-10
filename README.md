@@ -84,8 +84,9 @@ formatting uses Conform's range handling; MISS_HIT itself is a whole-file format
 
 After updating the formatter config, restart Neovim or reload it in the current
 session with `:lua package.loaded["configs.conform"] = nil; require("conform").setup(require("configs.conform"))`.
-`:ConformInfo` should list `mh_style` for MATLAB buffers. MISS_HIT indents function
-bodies by four spaces by default. Its installed version requires local functions
+`:ConformInfo` should list `mh_style` for MATLAB buffers. The config uses two-space
+indentation and a small wrapper to report parse errors instead of silently doing
+nothing. Its installed version requires local functions
 at the end of scripts; functions midway through scripts cause a parse error and
 prevent formatting, even though modern MATLAB accepts them.
 

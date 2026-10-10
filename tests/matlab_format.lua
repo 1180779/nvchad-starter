@@ -16,7 +16,7 @@ conform.format({ async = false, timeout_ms = 5000 }, function(err)
 end)
 assert(not format_error, format_error)
 local formatted = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\n")
-assert(formatted:find("    x = [1, 2, 3];", 1, true), formatted)
+assert(formatted:find("  x = [1, 2, 3];", 1, true), formatted)
 vim.api.nvim_buf_set_lines(0, 0, -1, false, {
   "function [] = sep()",
   "persistent separator",
@@ -32,12 +32,19 @@ conform.format({ async = false, timeout_ms = 5000 }, function(err)
 end)
 assert(not format_error, format_error)
 local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-assert(lines[2] == "    persistent separator", table.concat(lines, "\n"))
-assert(lines[4] == "    if isempty(separator)", table.concat(lines, "\n"))
-assert(lines[5]:match "^        separator =", table.concat(lines, "\n"))
-assert(lines[6] == "    end", table.concat(lines, "\n"))
-assert(lines[7] == "    fprintf(separator);", table.concat(lines, "\n"))
+assert(lines[2] == "  persistent separator", table.concat(lines, "\n"))
+assert(lines[4] == "  if isempty(separator)", table.concat(lines, "\n"))
+assert(lines[5]:match "^    separator =", table.concat(lines, "\n"))
+assert(lines[6] == "  end", table.concat(lines, "\n"))
+assert(lines[7] == "  fprintf(separator);", table.concat(lines, "\n"))
 assert(lines[8] == "end", table.concat(lines, "\n"))
+local invalid = { "x = 1;", "function y = f()", "y = 1;", "end", "x = 2;" }
+vim.api.nvim_buf_set_lines(0, 0, -1, false, invalid)
+conform.format({ async = false, timeout_ms = 5000 }, function(err)
+  format_error = err
+end)
+assert(format_error, "Unsupported mid-script functions must report a formatter error")
+assert(vim.deep_equal(vim.api.nvim_buf_get_lines(0, 0, -1, false), invalid), "Parse error changed the buffer")
 assert(vim.fn.readfile(path)[1] == "% original disk contents", "Formatter modified the saved file")
 vim.fn.delete(path)
 print "Real MATLAB formatter spacing, indentation, and unsaved-buffer checks passed"
