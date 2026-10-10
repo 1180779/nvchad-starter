@@ -23,8 +23,12 @@ def serve(requests, connect):
             request = json.loads(line)
             if engine is None:
                 engine = connect()
-            engine.eval(request["code"], nargout=0, stdout=Output(), stderr=Output())
-            emit("done")
+            if "help" in request:
+                text = engine.help(request["help"], nargout=1)
+                emit("help", text)
+            else:
+                engine.eval(request["code"], nargout=0, stdout=Output(), stderr=Output())
+                emit("done")
         except Exception as error:
             emit("error", str(error))
             # Reconnect on the next request, including after a desktop restart.

@@ -3,6 +3,7 @@ local options = {
     lua = { "stylua" },
     tex = { "latexindent" },
     plaintex = { "latexindent" },
+    matlab = { "mh_style" },
     -- Add dedicated formatters here as you install them via :Mason
     -- Anything NOT listed here falls back to the LSP formatter (see below),
     -- which is the closest equivalent to IntelliJ's "ReformatCode".
@@ -20,7 +21,7 @@ local options = {
     lsp_format = "fallback",
   },
 
-  -- No format_on_save: formatting happens only on keypress (<leader>fm),
+  -- No format_on_save: formatting happens only on keypress (<leader>f),
   -- mirroring IntelliJ's manual Ctrl+Alt+L behavior.
 }
 

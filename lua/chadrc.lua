@@ -7,7 +7,26 @@ local M = {}
 
 M.base46 = {
 	theme = "onedark",
-  transparency = true
+  transparency = true,
+  -- MATLAB-only colors, including LSP tokens that take priority over syntax.
+  hl_add = {
+    matlabFunctionCall = { fg = "blue", bold = true },
+    matlabFunctionName = { fg = "blue", bold = true },
+    matlabImplicit = { fg = "blue" },
+    matlabFunction = { fg = "purple", bold = true },
+    matlabSection = { fg = "green", bold = true },
+    matlabComment = { fg = "green" },
+    matlabMultilineComment = { fg = "green" },
+    ["@comment.matlab"] = { fg = "green" },
+    matlabConditional = { fg = "purple", bold = true },
+    matlabRepeat = { fg = "purple", bold = true },
+    matlabNumber = { fg = "yellow" },
+    matlabFloat = { fg = "yellow" },
+    matlabOperator = { fg = "cyan" },
+    matlabAssignment = { fg = "cyan" },
+    ["@lsp.type.function.matlab"] = { fg = "blue", bold = true },
+    ["@lsp.type.variable.matlab"] = { fg = "white" },
+  },
 
 	-- hl_override = {
 	-- 	Comment = { italic = true },

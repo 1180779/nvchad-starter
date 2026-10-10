@@ -1,5 +1,6 @@
 local M = {}
 local job, output_buf, busy
+local help_origin, help_win
 local output = ""
 local config_dir = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":h:h")
 
@@ -62,6 +63,47 @@ function M.toggle_output()
   end
 end
 
+local function fail(text)
+  busy = false
+  if help_origin then
+    help_origin = nil
+    vim.notify(text, vim.log.levels.WARN)
+  else
+    append(text .. "\n")
+  end
+end
+
+local function show_help(text)
+  local origin = help_origin
+  help_origin, busy = nil, false
+  if
+    not origin
+    or not vim.api.nvim_win_is_valid(origin.win)
+    or vim.api.nvim_win_get_buf(origin.win) ~= origin.buf
+    or not vim.deep_equal(vim.api.nvim_win_get_cursor(origin.win), origin.cursor)
+  then
+    return
+  end
+  if vim.trim(text) == "" then
+    vim.notify("No MATLAB help found for " .. origin.topic, vim.log.levels.INFO)
+    return
+  end
+  -- MATLAB help can contain desktop hyperlinks; keep their readable labels.
+  text = text:gsub("<a[^>]*>(.-)</a>", "%1")
+  vim.api.nvim_win_call(origin.win, function()
+    local buf
+    buf, help_win = vim.lsp.util.open_floating_preview(vim.split(text, "\n"), "plaintext", {
+      border = "rounded",
+      title = " MATLAB: " .. origin.topic .. " ",
+      max_width = 90,
+      max_height = 20,
+      focus_id = "matlab-help",
+    })
+    vim.keymap.set("n", "q", "<cmd>close<CR>", { buffer = buf, silent = true })
+    vim.keymap.set("n", "<Esc>", "<cmd>close<CR>", { buffer = buf, silent = true })
+  end)
+end
+
 local function start_bridge()
   if job then
     return true
@@ -82,9 +124,13 @@ local function start_bridge()
         local ok, event = pcall(vim.json.decode, line)
         if ok and event.type == "output" then
           append(event.text)
-        elseif ok and (event.type == "done" or event.type == "error") then
+        elseif ok and event.type == "help" then
+          show_help(event.text)
+        elseif ok and event.type == "error" then
+          fail(event.text)
+        elseif ok and event.type == "done" then
           busy = false
-          append(event.type == "done" and "\n[Finished]\n" or "\n" .. event.text .. "\n")
+          append "\n[Finished]\n"
         elseif line ~= "" then
           append(line .. "\n")
         end
@@ -97,19 +143,28 @@ local function start_bridge()
       end
     end,
     on_exit = function(_, code)
-      job, busy = nil, false
-      if code ~= 0 then
-        append("\n[Bridge exited: " .. code .. "]\n")
+      job = nil
+      if busy or code ~= 0 then
+        fail("[Bridge exited: " .. code .. "]")
       end
     end,
   })
   if id <= 0 then
-    busy = false
-    append "Cannot start Python; configure vim.g.matlab_python.\n"
+    fail "Cannot start Python; configure vim.g.matlab_python."
     return false
   end
   job = id
   return true
+end
+
+local function request(payload)
+  busy = true
+  if start_bridge() then
+    local ok = pcall(vim.fn.chansend, job, vim.json.encode(payload) .. "\n")
+    if not ok then
+      fail "Bridge disconnected; try again."
+    end
+  end
 end
 
 local function quote(text)
@@ -124,14 +179,39 @@ local function send(code, label)
   output = ""
   append(">> " .. label .. "\n")
   show_output()
-  busy = true
-  if start_bridge() then
-    local ok = pcall(vim.fn.chansend, job, vim.json.encode { code = code } .. "\n")
-    if not ok then
-      busy = false
-      append "Bridge disconnected; try again.\n"
+  request { code = code }
+end
+
+function M.help()
+  if help_win and vim.api.nvim_win_is_valid(help_win) then
+    vim.api.nvim_set_current_win(help_win)
+    return
+  end
+  if busy then
+    vim.notify("MATLAB is still running the previous request", vim.log.levels.WARN)
+    return
+  end
+  local line = vim.api.nvim_get_current_line()
+  local col = vim.api.nvim_win_get_cursor(0)[2] + 1
+  local topic
+  -- Keep dotted names intact: help containers.Map.isKey, not just isKey.
+  for first, name, last in line:gmatch "()([%a_][%w_%.]*)()" do
+    if first <= col and col < last then
+      topic = name:gsub("%.$", "")
+      break
     end
   end
+  if not topic then
+    vim.notify("Place the cursor on a MATLAB symbol", vim.log.levels.INFO)
+    return
+  end
+  help_origin = {
+    win = vim.api.nvim_get_current_win(),
+    buf = vim.api.nvim_get_current_buf(),
+    cursor = vim.api.nvim_win_get_cursor(0),
+    topic = topic,
+  }
+  request { help = topic }
 end
 
 function M.run_file()
@@ -203,6 +283,7 @@ function M.attach(buf)
     { "n", "<leader>mc", M.run_cell, "Run MATLAB section" },
     { "n", "<leader>mo", M.toggle_output, "Toggle MATLAB output" },
     { "n", "<leader>me", M.command, "Enter MATLAB command" },
+    { "n", "<leader>qd", M.help, "MATLAB help for symbol" },
   } do
     vim.keymap.set(entry[1], entry[2], entry[3], { buffer = buf, desc = entry[4] })
   end

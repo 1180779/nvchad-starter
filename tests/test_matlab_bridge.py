@@ -7,6 +7,17 @@ import unittest
 
 
 class BridgeTests(unittest.TestCase):
+    def test_help_returns_text_without_execution_output(self):
+        class Engine:
+            def help(self, topic, **options):
+                self.topic = topic
+                return "plot - Plot data\nSyntax: plot(X,Y)"
+
+        engine = Engine()
+        bridge.serve(io.StringIO('{"help":"containers.Map.isKey"}\n'), lambda: engine)
+        self.assertEqual(engine.topic, "containers.Map.isKey")
+        self.assertEqual(self.events(), [{"type": "help", "text": "plot - Plot data\nSyntax: plot(X,Y)"}])
+
     def test_missing_session_is_reported_without_starting_matlab(self):
         bridge.serve(io.StringIO('{"code":"x=1"}\n'), lambda: (_ for _ in ()).throw(
             RuntimeError("Share NvimMatlab first")))

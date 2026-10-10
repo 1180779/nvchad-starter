@@ -2,13 +2,21 @@
 vim.opt.rtp:prepend(vim.fn.getcwd())
 vim.g.mapleader = " "
 local matlab = require "matlab"
-local sent, callbacks
+local sent, callbacks, request
 vim.fn.jobstart = function(_, opts)
   callbacks = opts
   return 123
 end
 vim.fn.chansend = function(_, data)
-  sent = vim.json.decode(data).code
+  request = vim.json.decode(data)
+  sent = request.code
+  if request.help then
+    callbacks.on_stdout(
+      123,
+      { '{"type":"help","text":"Map.isKey - Test key membership\\nSyntax: isKey(map,key)"}', "" }
+    )
+    return
+  end
   callbacks.on_stdout(123, { '{"type":"output","text":"Result: 42\\n"}', '{"type":"done","text":""}', "" })
 end
 
@@ -67,5 +75,29 @@ matlab.toggle_output()
 assert(#vim.api.nvim_list_wins() == 2)
 assert(vim.fn.winbufnr(vim.fn.win_findbuf(output_buf)[1]) == output_buf)
 assert(vim.api.nvim_get_current_win() == win)
+local previous_output = vim.api.nvim_buf_get_lines(output_buf, 0, -1, false)
+vim.api.nvim_buf_set_lines(source, 0, -1, false, { "found = containers.Map.isKey(map, key);" })
+vim.api.nvim_win_set_cursor(win, { 1, 27 })
+matlab.help()
+assert(request.help == "containers.Map.isKey", vim.inspect(request))
+assert(
+  vim.deep_equal(previous_output, vim.api.nvim_buf_get_lines(output_buf, 0, -1, false)),
+  "Help replaced run output"
+)
+assert(vim.api.nvim_get_current_win() == win, "Help stole editor focus")
+local popup
+for _, float in ipairs(vim.api.nvim_list_wins()) do
+  if vim.api.nvim_win_get_config(float).relative ~= "" then
+    popup = float
+  end
+end
+assert(popup, "No help popup")
+assert(vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(popup), 0, 1, false)[1]:find("Map.isKey", 1, true))
+matlab.help()
+assert(vim.api.nvim_get_current_win() == popup, "Second help press did not focus the popup")
+vim.cmd "normal \27"
+assert(not vim.api.nvim_win_is_valid(popup), "Escape did not close the help popup")
+assert(vim.api.nvim_get_current_win() == win, "Escape did not return to the editor")
+assert(vim.fn.maparg(" qd", "n", false, true).buffer == 1)
 print "MATLAB mapping, selection, section, save, and output checks passed"
 vim.cmd "qa!"

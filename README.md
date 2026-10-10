@@ -53,6 +53,34 @@ These mappings apply only to MATLAB buffers. Leader is Space.
 | `<leader>mc` | Evaluate the current `%%` section |
 | `<leader>mo` | Show/hide the output split |
 | `<leader>me` | Enter a MATLAB command, e.g. `result = myfunction(3)` |
+| `<leader>qd` | Show MATLAB help for the symbol under the cursor |
+| `<leader>f` | Format using MISS_HIT (`mh_style`) through Conform |
+
+The help popup supports dotted names such as `containers.Map.isKey`, uses the
+shared desktop session's MATLAB path, and preserves the last run's output.
+Press `<leader>qd` again to focus the popup for scrolling; `q` or Escape closes it.
+MATLAB must be idle and shared with the bridge. Custom functions need help
+comments and must be on the MATLAB path. `<leader>g` still jumps to the definition;
+`<leader>qp` shows signature help inside a call, and `<leader>qe` shows diagnostics.
+
+MATLAB syntax uses brighter function names/calls, purple control keywords,
+yellow numbers, cyan operators, green comments, and bold green `%%` section headings. The LSP's
+semantic tokens distinguish functions from variables once analysis is ready.
+Lexically, array indexing and function calls both look like `name(...)`; until
+semantic analysis arrives, both receive the call color. These colors are scoped
+to MATLAB and configured in `lua/chadrc.lua`; the extra syntax rules live in
+`after/syntax/matlab.vim`. No Tree-sitter parser is required for these additions.
+NvChad caches theme highlights. After changing colors in `lua/chadrc.lua`, refresh
+them in the running editor with `:lua require("base46").load_all_highlights()`;
+restarting alone can keep the old cached colors.
+
+Install the formatter with `:MasonInstall miss_hit` (already installed on this
+machine). `<leader>f` formats manually, including unsaved edits, without needing
+a MATLAB session. MISS_HIT fixes indentation, spacing, and other supported style
+issues. A project's `miss_hit.cfg` or `.miss_hit` controls its rules. Without the
+formatter installed, Conform falls back to MATLAB LSP formatting, which mainly
+handles indentation. Use `:ConformInfo` to check formatter availability. Visual
+formatting uses Conform's range handling; MISS_HIT itself is a whole-file formatter.
 
 Use normal split navigation (`Ctrl-w j/k`) to enter/leave the output pane, and
 `q` there to hide it. You can search and yank output normally. Each run replaces
@@ -75,6 +103,8 @@ If MATLAB restarts, share the new session and run again.
 ```sh
 python3 -B tests/test_matlab_bridge.py
 nvim --headless -u NONE -i NONE -l tests/matlab.lua
+nvim -n --headless -u NONE -i NONE -l tests/matlab_syntax.lua
+nvim -n --headless -u NONE -i NONE -l tests/matlab_format.lua
 ```
 
 These check the protocol, failure recovery, mappings, selection/section execution,
