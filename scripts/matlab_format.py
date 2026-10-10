@@ -20,7 +20,20 @@ def main():
     # MISS_HIT returns 1 both for style findings and for parse errors. Its
     # brief diagnostics contain ': error:' only for errors, without source
     # excerpts that could otherwise produce a false match.
+    errors = [
+        line
+        for line in (result.stdout + result.stderr).splitlines()
+        if ": error:" in line and "file is not auto-fixed" not in line
+    ]
     if ": error:" in result.stdout or ": error:" in result.stderr:
+        for line in errors:
+            if "script-global functions are an Octave-specific feature" in line:
+                line = line.split(": error:", 1)[0] + (
+                    ": error: MISS_HIT does not support local functions midway "
+                    "through a MATLAB script. Move local functions to the end "
+                    "of the file."
+                )
+            print(line, file=sys.stderr)
         return 2
     return result.returncode
 

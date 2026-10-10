@@ -276,6 +276,16 @@ function M.command()
   end)
 end
 
+function M.format()
+  require("conform").format({ async = true, lsp_format = "fallback", quiet = true }, function(err)
+    if err then
+      -- Conform uses a temporary filename beside the source file.
+      local message = err:gsub("%.conform%.%d+%.", "")
+      vim.notify(message, vim.log.levels.ERROR, { title = "MATLAB formatting" })
+    end
+  end)
+end
+
 function M.attach(buf)
   for _, entry in ipairs {
     { "n", "<leader>mr", M.run_file, "Run MATLAB script" },
@@ -284,6 +294,7 @@ function M.attach(buf)
     { "n", "<leader>mo", M.toggle_output, "Toggle MATLAB output" },
     { "n", "<leader>me", M.command, "Enter MATLAB command" },
     { "n", "<leader>qd", M.help, "MATLAB help for symbol" },
+    { { "n", "x" }, "<leader>f", M.format, "Format MATLAB code" },
   } do
     vim.keymap.set(entry[1], entry[2], entry[3], { buffer = buf, desc = entry[4] })
   end

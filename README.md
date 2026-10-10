@@ -89,6 +89,9 @@ indentation and a small wrapper to report parse errors instead of silently doing
 nothing. Its installed version requires local functions
 at the end of scripts; functions midway through scripts cause a parse error and
 prevent formatting, even though modern MATLAB accepts them.
+In MATLAB buffers, `<leader>f` shows the actual formatter error in a notification,
+including the source location and suggested fix when available. Use `:messages`
+to read it again.
 
 Use normal split navigation (`Ctrl-w j/k`) to enter/leave the output pane, and
 `q` there to hide it. You can search and yank output normally. Each run replaces
