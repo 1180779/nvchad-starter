@@ -82,6 +82,13 @@ formatter installed, Conform falls back to MATLAB LSP formatting, which mainly
 handles indentation. Use `:ConformInfo` to check formatter availability. Visual
 formatting uses Conform's range handling; MISS_HIT itself is a whole-file formatter.
 
+After updating the formatter config, restart Neovim or reload it in the current
+session with `:lua package.loaded["configs.conform"] = nil; require("conform").setup(require("configs.conform"))`.
+`:ConformInfo` should list `mh_style` for MATLAB buffers. MISS_HIT indents function
+bodies by four spaces by default. Its installed version requires local functions
+at the end of scripts; functions midway through scripts cause a parse error and
+prevent formatting, even though modern MATLAB accepts them.
+
 Use normal split navigation (`Ctrl-w j/k`) to enter/leave the output pane, and
 `q` there to hide it. You can search and yank output normally. Each run replaces
 the previous output. Another run is rejected while the previous one is active.
