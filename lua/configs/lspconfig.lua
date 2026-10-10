@@ -1,6 +1,16 @@
 require("nvchad.configs.lspconfig").defaults()
 
-local servers = { "html", "cssls", "texlab" }
+local servers = { "html", "cssls", "texlab", "matlab_ls" }
+vim.lsp.config("matlab_ls", {
+  settings = {
+    MATLAB = {
+      installPath = require("matlab").root(),
+      indexWorkspace = true,
+      matlabConnectionTiming = "onStart",
+      telemetry = false,
+    },
+  },
+})
 vim.lsp.enable(servers)
 
 -- texlab: VimTeX already drives latexmk compilation and forward search, so turn
