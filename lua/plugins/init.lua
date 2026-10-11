@@ -84,15 +84,10 @@ return {
   {
     "coder/claudecode.nvim",
     event = "VeryLazy", -- load at startup so the WS server + ~/.claude/ide/ lockfile exist for /ide
+    cmd = "ClaudeCodeSend",
     opts = {
       -- Claude runs in a separate terminal, so no-op the integrated terminal (no split on send)
       terminal = { provider = "none" },
-    },
-    keys = {
-      -- Visually select, then push it to a connected Claude Code session as @file#Lx-y
-      { "<leader>ls", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send selection to Claude Code" },
-      -- IntelliJ muscle memory: Ctrl+Alt+K also sends the selection.
-      { "<C-M-k>", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send selection to Claude Code" },
     },
   },
   {

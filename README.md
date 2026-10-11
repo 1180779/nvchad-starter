@@ -8,6 +8,11 @@
 
 1) Lazyvim starter https://github.com/LazyVim/starter as nvchad's starter was inspired by Lazyvim's . It made a lot of things easier!
 
+# AI selection sending
+
+For LaTeX selection shortcuts for Claude Code and Codex, see
+[AI selection sending](docs/ai_send.md).
+
 # MATLAB
 
 Edit ordinary `.m` files in Neovim, with MathWorks' `matlab_ls` for completion,

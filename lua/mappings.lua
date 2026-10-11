@@ -4,6 +4,8 @@ require "nvchad.mappings"
 
 local map = vim.keymap.set
 
+require("ai_send").setup()
+
 map("n", ";", ":", { desc = "CMD enter command mode" })
 map("i", "jk", "<ESC>")
 
