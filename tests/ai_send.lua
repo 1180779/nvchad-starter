@@ -1,21 +1,25 @@
 -- Run: nvim -n --headless -u NONE -i NONE -l tests/ai_send.lua
 vim.opt.rtp:prepend(vim.fn.getcwd())
 vim.g.mapleader = " "
+vim.env.NVIM_CODEX_TMUX_SOCKETS = nil
 local calls, notices, clipboard = {}, {}, nil
-local panes = "%12\tcodex\t/home/me/paper\n"
+local panes = "%12\tcodex\t/home/me/paper\t/tmp/tmux-default\tmain:0.0\n"
 local failure
 local current_command = "codex\n"
+local private_panes, private_socket
 vim.notify = function(message, level)
   notices[#notices + 1] = { message, level }
 end
 vim.system = function(args, opts)
-  calls[#calls + 1] = { args = args, opts = opts }
+  local command = args[2] == "-S" and args[4] or args[2]
+  calls[#calls + 1] = { args = args, opts = opts, command = command }
   return {
     wait = function()
-      if args[2] == failure then
+      if command == failure then
         return { code = 1, stdout = "", stderr = "test failure" }
       end
-      local stdout = args[2] == "list-panes" and panes or args[2] == "display-message" and current_command or ""
+      local pane_list = args[2] == "-S" and args[3] == private_socket and private_panes or panes
+      local stdout = command == "list-panes" and pane_list or command == "display-message" and current_command or ""
       return { code = 0, stdout = stdout, stderr = "" }
     end,
   }
@@ -44,11 +48,11 @@ local function select(keys, row, col)
   vim.cmd("normal! " .. keys)
 end
 local function pasted_text()
-  assert(calls[1].args[2] == "list-panes")
-  assert(calls[2].args[2] == "display-message")
-  assert(calls[3].args[2] == "load-buffer")
+  assert(calls[1].command == "list-panes")
+  assert(calls[2].command == "display-message")
+  assert(calls[3].command == "load-buffer")
   assert(calls[3].args[#calls[3].args] == "-")
-  assert(calls[4].args[2] == "paste-buffer")
+  assert(calls[4].command == "paste-buffer")
   assert(vim.tbl_contains(calls[4].args, "-p"), "Missing bracketed paste")
   assert(vim.tbl_contains(calls[4].args, "-r"), "Newlines must be preserved")
   assert(calls[4].args[#calls[4].args] == "%12")
@@ -85,7 +89,8 @@ vim.ui.select = function(items, _, callback)
   picked = items
   callback(items[2])
 end
-panes = "%12\tcodex\t/project/one\n%13\tcodex\t/project/two\n%14\tzsh\t/project/three\n"
+panes =
+  "%12\tcodex\t/project/one\t/tmp/tmux-default\tmain:0.0\n%13\tcodex\t/project/two\t/tmp/tmux-default\tmain:0.0\n%14\tzsh\t/project/three\t/tmp/tmux-default\tmain:0.0\n"
 select "V"
 ai.send_codex()
 assert(#picked == 2, "Offered a shell as a Codex target")
@@ -96,7 +101,7 @@ ai.send_codex()
 assert(#calls == 2 and clipboard, "Pasted after Codex exited during pane selection")
 current_command = "codex\n"
 
-panes = "%14\tzsh\t/project\n"
+panes = "%14\tzsh\t/project\t/tmp/tmux-default\tmain:0.0\n"
 select "V"
 ai.send_codex()
 assert(#calls == 1, "Pasted into a shell without Codex")
@@ -106,26 +111,26 @@ select "V"
 ai.send_codex()
 assert(clipboard, "Unavailable tmux should offer clipboard fallback")
 failure = "load-buffer"
-panes = "%12\tcodex\t/project\n"
+panes = "%12\tcodex\t/project\t/tmp/tmux-default\tmain:0.0\n"
 select "V"
 ai.send_codex()
 assert(#calls == 3 and clipboard, "A failed buffer load must not paste")
 failure = "paste-buffer"
-panes = "%12\tcodex\t/project\n"
+panes = "%12\tcodex\t/project\t/tmp/tmux-default\tmain:0.0\n"
 select "V"
 ai.send_codex()
-assert(calls[5].args[2] == "delete-buffer", "Failed paste left a temporary tmux buffer")
+assert(calls[5].command == "delete-buffer", "Failed paste left a temporary tmux buffer")
 assert(clipboard, "Failed paste should retain selection for manual paste")
 failure = nil
 
 vim.ui.select = function(_, _, callback)
   callback(nil)
 end
-panes = "%12\tcodex\t/project/one\n%13\tcodex\t/project/two\n"
+panes = "%12\tcodex\t/project/one\t/tmp/tmux-default\tmain:0.0\n%13\tcodex\t/project/two\t/tmp/tmux-default\tmain:0.0\n"
 select "V"
 ai.send_codex()
 assert(#calls == 1 and not clipboard, "Cancelling the pane chooser sent text")
-panes = "%12\tcodex\t/project\n"
+panes = "%12\tcodex\t/project\t/tmp/tmux-default\tmain:0.0\n"
 select "V"
 vim.cmd "normal! \27"
 ai.send_codex()
@@ -162,4 +167,35 @@ assert(vim.fn.maparg(" ls", "x", false, true).callback)
 assert(vim.fn.maparg(" lS", "x", false, true).callback)
 assert(vim.fn.maparg("<C-M-k>", "x", false, true).callback)
 assert(vim.fn.maparg(" lc", "n", false, true).rhs:lower() == "<plug>(vimtex-clean)")
+
+-- Statusline launches use independent sockets and a Python supervisor.
+local root = "/tmp/csl-nvim-test-" .. vim.fn.getpid()
+vim.fn.mkdir(root, "p")
+private_socket = root .. "/tmux.sock"
+vim.fn.writefile({}, private_socket)
+vim.fn.writefile({ "{}" }, root .. "/started.json")
+vim.env.NVIM_CODEX_TMUX_SOCKETS = private_socket
+private_panes = "%0\tpython\t/project/private\t" .. private_socket .. "\tcodex:0.0\n"
+panes = "%0\tzsh\t/project/default\t/tmp/tmux-default\tmain:0.0\n"
+current_command = "python\n"
+select "V"
+ai.send_codex()
+assert(#calls == 5, "Could not find Codex in the statusline's private server")
+for i = 2, 5 do
+  assert(calls[i].args[2] == "-S" and calls[i].args[3] == private_socket, "Used the wrong tmux server")
+end
+assert(calls[5].command == "paste-buffer" and calls[5].args[#calls[5].args] == "%0")
+
+-- The inherited server and discovery glob can refer to the same session.
+panes = private_panes
+select "V"
+ai.send_codex()
+assert(#calls == 5 and calls[5].command == "paste-buffer", "Duplicate server discovery opened a chooser")
+
+vim.fn.writefile({ '{"code":0}' }, root .. "/exit.json")
+select "V"
+ai.send_codex()
+assert(#calls == 2 and clipboard, "Sent to an exited statusline session")
+vim.fn.delete(root, "rf")
+vim.env.NVIM_CODEX_TMUX_SOCKETS = nil
 print "AI selection sending tests passed"

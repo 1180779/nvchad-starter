@@ -21,14 +21,23 @@ Codex uses the terminal workflow below.
 
 ## Codex in a separate terminal
 
-Start Codex in tmux from your LaTeX project directory:
+On this machine, run `codex` as usual from your project directory. The shell
+function keeps `codex-statusline`'s usage bar and private tmux session. The
+`NVIM_CODEX_TMUX_SOCKETS` setting in `.zshrc` lets Neovim discover these sessions,
+including several concurrent launches. Open a new shell, or run `source ~/.zshrc`,
+then restart Neovim from that shell so it inherits the setting.
 
-    tmux new-session -s codex codex
+Alternatively, start the Codex executable directly in tmux from your LaTeX
+project directory:
 
-Neovim and Codex must use the same tmux server. Neovim can run outside tmux.
+    tmux new-session -s codex ~/.local/bin/codex
+
+For this manual launch, Neovim and Codex must use the same tmux server.
+Neovim can run outside tmux.
 If you already use tmux, run `codex` in another pane or window on that server.
 The sender discovers panes whose foreground command is `codex`. If there are
-several, it asks you to choose one and shows each pane's working directory.
+several, it asks you to choose one and shows each pane's working directory and
+server socket. The usage utility's Python supervisor is also recognized.
 
 Select text in Neovim and press Space l Shift+s, or set `:AISendTarget codex`
 and use Space l s / Ctrl+Alt+K. The selection is pasted into the Codex prompt,

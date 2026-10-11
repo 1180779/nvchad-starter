@@ -1,10 +1,27 @@
 local M = {}
 
-local function tmux(args, stdin)
+local function tmux(args, stdin, socket)
+  local command = { "tmux" }
+  if socket and socket ~= "" then
+    vim.list_extend(command, { "-S", socket })
+  end
   local ok, result = pcall(function()
-    return vim.system(vim.list_extend({ "tmux" }, args), { text = true, stdin = stdin }):wait(2000)
+    return vim.system(vim.list_extend(command, args), { text = true, stdin = stdin }):wait(2000)
   end)
   return ok and result.code == 0 and result.stdout or nil
+end
+
+local function is_codex(pane, command)
+  if command == "codex" then
+    return true
+  end
+  -- codex-statusline supervises Codex with Python in codex:0.0 on a private server.
+  local root = pane.socket:match "^(/tmp/csl-[^/]+)/tmux.sock$"
+  return root
+    and pane.target == "codex:0.0"
+    and command:match "^python[%d%.]*$"
+    and vim.uv.fs_stat(root .. "/started.json")
+    and not vim.uv.fs_stat(root .. "/exit.json")
 end
 
 local function copy_for_codex(text, reason)
@@ -17,19 +34,19 @@ local function copy_for_codex(text, reason)
 end
 
 local function paste_into(pane, text)
-  local command = tmux { "display-message", "-p", "-t", pane.id, "#{pane_current_command}" }
-  if not command or vim.trim(command) ~= "codex" then
+  local command = tmux({ "display-message", "-p", "-t", pane.id, "#{pane_current_command}" }, nil, pane.socket)
+  if not command or not is_codex(pane, vim.trim(command)) then
     copy_for_codex(text, "The selected pane is no longer running Codex")
     return
   end
   local buffer = "nvim-codex-" .. vim.fn.getpid() .. "-" .. vim.uv.hrtime()
-  if not tmux({ "load-buffer", "-b", buffer, "-" }, text) then
+  if not tmux({ "load-buffer", "-b", buffer, "-" }, text, pane.socket) then
     copy_for_codex(text, "Could not load the tmux paste buffer")
     return
   end
   -- Preserve newlines and request bracketed paste. Leave Enter to the user.
-  if not tmux { "paste-buffer", "-p", "-r", "-d", "-b", buffer, "-t", pane.id } then
-    tmux { "delete-buffer", "-b", buffer }
+  if not tmux({ "paste-buffer", "-p", "-r", "-d", "-b", buffer, "-t", pane.id }, nil, pane.socket) then
+    tmux({ "delete-buffer", "-b", buffer }, nil, pane.socket)
     copy_for_codex(text, "Could not paste into the Codex pane")
     return
   end
@@ -64,27 +81,41 @@ function M.send_codex()
   )
   vim.cmd "normal! \27"
 
-  local output = tmux { "list-panes", "-a", "-F", "#{pane_id}\t#{pane_current_command}\t#{pane_current_path}" }
-  if not output then
-    copy_for_codex(prompt, "tmux is unavailable")
-    return
+  local sockets = { "" } -- Also search the current/default tmux server.
+  if vim.env.NVIM_CODEX_TMUX_SOCKETS and vim.env.NVIM_CODEX_TMUX_SOCKETS ~= "" then
+    vim.list_extend(sockets, vim.fn.glob(vim.env.NVIM_CODEX_TMUX_SOCKETS, false, true))
   end
-  local panes = {}
-  for line in output:gmatch "[^\n]+" do
-    local id, command, cwd = line:match "^(%%%d+)\t([^\t]+)\t(.*)$"
-    if command == "codex" then
-      panes[#panes + 1] = { id = id, cwd = cwd }
+  local panes, seen, available = {}, {}, false
+  for _, socket in ipairs(sockets) do
+    local output = tmux({
+      "list-panes",
+      "-a",
+      "-F",
+      "#{pane_id}\t#{pane_current_command}\t#{pane_current_path}\t#{socket_path}\t#{session_name}:#{window_index}.#{pane_index}",
+    }, nil, socket)
+    if output then
+      available = true
+      for line in output:gmatch "[^\n]+" do
+        local id, command, cwd, path, target = line:match "^(%%%d+)\t([^\t]+)\t([^\t]*)\t([^\t]+)\t([^\t]+)$"
+        if id then
+          local pane = { id = id, cwd = cwd, socket = path, target = target }
+          local key = path .. ":" .. id
+          if not seen[key] and is_codex(pane, command) then
+            panes[#panes + 1], seen[key] = pane, true
+          end
+        end
+      end
     end
   end
   if #panes == 0 then
-    copy_for_codex(prompt, "No Codex tmux pane found")
+    copy_for_codex(prompt, available and "No Codex tmux pane found" or "tmux is unavailable")
   elseif #panes == 1 then
     paste_into(panes[1], prompt)
   else
     vim.ui.select(panes, {
       prompt = "Send selection to Codex:",
       format_item = function(pane)
-        return pane.id .. "  " .. pane.cwd
+        return pane.id .. "  " .. pane.cwd .. "  (" .. pane.socket .. ")"
       end,
     }, function(pane)
       if pane then
