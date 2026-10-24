@@ -8,6 +8,26 @@
 
 1) Lazyvim starter https://github.com/LazyVim/starter as nvchad's starter was inspired by Lazyvim's . It made a lot of things easier!
 
+# Updating Neovim
+
+This machine uses the official Linux tarball in `/usr/local/nvim`, reached through
+`/usr/local/bin/nvim`. Close Neovim, then update to the latest stable release with:
+
+```sh
+python3 ~/.config/nvim/scripts/update_neovim.py
+```
+
+The script requires Python 3.12+, downloads from the official GitHub release,
+checks its SHA-256 and version, and replaces the installed binary and runtime.
+It keeps the previous `bin`, `lib`, and `share` directories in a `.backup-*`
+directory inside the installation and restores them if installation fails.
+Your config and plugins are kept separately. The installation must be writable
+by your user; this machine's installation already is. For another tarball
+installation, pass `--install-dir /path/to/nvim`.
+
+Restart Neovim after updating. Check the active version with `nvim --version`.
+Verify the updater with `python3 -B tests/test_neovim_update.py`.
+
 # AI selection sending
 
 For LaTeX selection shortcuts for Claude Code and Codex, see
@@ -33,16 +53,15 @@ windows belong to the connected MATLAB session.
    does not attach. Syntax highlighting is provided by Neovim; the execution
    bridge runs independently of the language server.
 
-The MATLAB root is detected from the resolved `matlab` executable on PATH.
-R2026a+ ships a Python Engine in `extern/engines/python/dist`, which the bridge
-uses automatically. This machine's R2026b installation works with `python3`.
+`init.lua` points to the R2026b installation in `~/Applications/Matlab/R2026b`.
+The bridge uses the Engine bundled there and Arch's system Python 3.14.
 For older releases, install the matching MATLAB Engine into a compatible Python
 environment using [MathWorks' installation instructions](https://www.mathworks.com/help/matlab/matlab_external/install-the-matlab-engine-for-python.html).
 
 Optional overrides belong in `init.lua`, before plugin setup:
 
 ```lua
-vim.g.matlab_root = "/usr/local/MATLAB/R2026b"
+vim.g.matlab_root = vim.fn.expand "~/Applications/Matlab/R2026b"
 vim.g.matlab_python = "/path/to/venv/bin/python"
 vim.g.matlab_session = "NvimMatlab"
 ```

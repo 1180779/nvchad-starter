@@ -10,6 +10,13 @@ function M.root()
   end
   local executable = vim.fn.exepath "matlab"
   local resolved = vim.uv.fs_realpath(executable)
+  local root = resolved and vim.fn.fnamemodify(resolved, ":h:h") or ""
+  if vim.fn.filereadable(root .. "/bin/glnxa64/MATLAB") == 1 then
+    return root
+  end
+  -- A user launcher may be first on PATH; the packaged executable still
+  -- identifies the installation used by the Python Engine and language server.
+  resolved = vim.uv.fs_realpath "/usr/bin/matlab"
   return resolved and vim.fn.fnamemodify(resolved, ":h:h") or ""
 end
 
