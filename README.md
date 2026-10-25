@@ -53,6 +53,20 @@ windows belong to the connected MATLAB session.
    does not attach. Syntax highlighting is provided by Neovim; the execution
    bridge runs independently of the language server.
 
+The language server uses the file's Git project root, or the file's directory
+outside Git, as its workspace. Starting Neovim from `~` should not make it index
+your whole home directory. After changing LSP configuration, restart Neovim.
+`:checkhealth vim.lsp` lists the active client's root and attached buffers.
+Diagnostics follow unsaved Neovim edits; they do not require reloading from disk
+or opening the same workspace in the MATLAB desktop. The LSP uses a separate
+MATLAB process, so completion does not see variables created by `<leader>mr` in
+the shared desktop session.
+
+MATLAB semantic highlighting is kept enabled despite NvChad's global default.
+The config supplies all settings explicitly to avoid a configuration-update
+crash in language server v1.3.12, and disables graphics prewarming in the
+analysis process.
+
 `init.lua` points to the R2026b installation in `~/Applications/Matlab/R2026b`.
 The bridge uses the Engine bundled there and Arch's system Python 3.14.
 For older releases, install the matching MATLAB Engine into a compatible Python
@@ -140,6 +154,7 @@ python3 -B tests/test_matlab_bridge.py
 nvim --headless -u NONE -i NONE -l tests/matlab.lua
 nvim -n --headless -u NONE -i NONE -l tests/matlab_syntax.lua
 nvim -n --headless -u NONE -i NONE -l tests/matlab_format.lua
+nvim --headless -u NONE -i NONE -l tests/matlab_lsp.lua
 ```
 
 These check the protocol, failure recovery, mappings, selection/section execution,
